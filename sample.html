@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZAP + Gemini 보안 분석 보고서</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8f9fa; }
+        .markdown-body table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 1.5rem; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #adb5bd;
+        }
+        .markdown-body th, .markdown-body td { 
+            border: 1px solid #ced4da;
+            padding: 1rem 1.25rem; 
+            text-align: left; 
+            vertical-align: top; 
+            line-height: 1.7;
+        }
+        .markdown-body th { 
+            background-color: #f1f3f5; 
+            font-weight: 600; 
+            font-size: 0.95rem; 
+            color: #212529;
+            border-color: #adb5bd;
+        }
+        .markdown-body td { background-color: #ffffff; }
+        .markdown-body tr:nth-child(even) td { background-color: #f8f9fa; }
+        .markdown-body code { background-color: #e9ecef; color: #c92a2a; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875em; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;}
+        .markdown-body pre { background-color: #212529; color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+        .markdown-body ul { list-style-position: inside; padding-left: 1rem; }
+        .markdown-body strong { color: #212529; font-weight: 600; }
+        .risk-high { color: #d9480f; font-weight: 700; }
+        .risk-medium { color: #f08c00; font-weight: 700; }
+        .risk-low { color: #1971c2; font-weight: 700; }
+    </style>
+</head>
+<body class="text-gray-800">
+    <div class="container mx-auto p-4 md:p-6 lg:p-8 max-w-screen-xl">
+        <header class="text-center mb-10">
+            <h1 class="text-5xl font-bold text-gray-800">보안 취약점 분석 보고서</h1>
+            <p class="text-gray-600 mt-3">Powered by OWASP ZAP & Google Gemini</p>
+        </header>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10 text-center">
+            <div class="bg-white border-t-4 border-red-500 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">20</p><p class="text-gray-500">High Risk</p></div>
+            <div class="bg-white border-t-4 border-yellow-500 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">715</p><p class="text-gray-500">Medium Risk</p></div>
+            <div class="bg-white border-t-4 border-blue-500 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">1992</p><p class="text-gray-500">Low Risk</p></div>
+            <div class="bg-white border-t-4 border-gray-400 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">725</p><p class="text-gray-500">Informational</p></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-10">
+            <h2 class="text-2xl font-semibold mb-3 border-b pb-2">분석 개요</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-base">
+                <p><strong>분석 대상:</strong> <span class="font-mono text-blue-700">http://testasp.vulnweb.com</span></p>
+                <p><strong>분석 일시:</strong> <span class="font-mono">2025-06-13 14:06:02</span></p>
+            </div>
+        </div>
+
+        <main id="report-table-content" class="markdown-body"></main>
+        
+        <div id="report-recommendation-content" class="markdown-body mt-10 bg-white p-8 rounded-lg shadow-md"></div>
+    </div>
+
+    <textarea id="table-markdown-source" style="display:none;">## ZAP 스캔 데이터 기반 보안 분석 보고서
+
+| No. | 취약점 분류 (CWE) | 위험도 | 상세 분석 및 조치 방안 | 공격 벡터 및 방어 코드 |
+|---|---|---|---|---|
+| 1 | External Redirect (CWE-601) | High | **[상세 설명]**  `RetURL` 파라미터를 통해 외부 리다이렉션이 발생할 수 있습니다. 공격자는 악성 URL을 `RetURL` 파라미터에 삽입하여 사용자를 피싱 사이트 또는 악성 사이트로 유도할 수 있습니다. 이는 사용자의 개인 정보 유출 및 시스템 감염으로 이어질 수 있습니다. <br><br>**[조치 방안]** 1. `RetURL` 파라미터 값에 대한 입력 검증을 강화합니다. 허용된 도메인 목록을 정의하고, 입력값이 허용된 도메인에 속하는지 확인합니다. 2. 리다이렉션 전에 목표 URL의 유효성을 검증합니다.  3.  리다이렉트를 수행하기 전에 목적지 URL의 보안을 확인하는 추가적인 검증 메커니즘을 구현합니다. 예를 들어, 목적지 URL이 안전한 HTTPS 프로토콜을 사용하는지 확인합니다. <br><br> | **[공격 벡터]**  `http://testasp.vulnweb.com/Login.asp?RetURL=http%3A%2F%2F2915050977509159237.owasp.org`  `http://testasp.vulnweb.com/Logout.asp?RetURL=http%3A%2F%2F2915050977509159237.owasp.org` <br> 공격 페이로드:  `http://2915050977509159237.owasp.org` (악성 URL 예시) <br><br> **[방어 코드 예시](Python)** <br>```python  allowed_domains = ["testasp.vulnweb.com"]  ret_url = request.args.get("RetURL")  if ret_url and urllib.parse.urlparse(ret_url).netloc not in allowed_domains:     return "Invalid redirect URL", 400  # 또는 적절한 에러 처리  # ... 리다이렉트 로직 ... ``` |
+| 2 | SQL Injection (CWE-89) | High | **[상세 설명]**  여러 파라미터 (`tfUName`, `tfUPass`, `tfRName`, `tfSubject`, `tfText`, `RetURL`, `id`)에서 SQL Injection 취약점이 발견되었습니다.  공격자는 악성 SQL 코드를 입력하여 데이터베이스에 접근하거나, 데이터를 수정/삭제하거나,  시스템을 제어할 수 있습니다. 이는 데이터 유출, 서비스 중단, 시스템 손상으로 이어질 수 있습니다. <br><br>**[조치 방안]**  1. 매개변수화된 쿼리(Parameterized Query) 또는 준비된 명령문(Prepared Statement)을 사용하여 사용자 입력을 직접 SQL 쿼리에 포함하지 않습니다.  2. 모든 사용자 입력을 철저히 검증하고, 특수 문자를 에스케이프 처리합니다. 3.  입력값의 길이와 데이터 형식을 제한하여 SQL Injection 공격의 영향을 최소화합니다. 4. 데이터베이스 권한을 최소 권한으로 제한합니다.  <br><br> | **[공격 벡터]** 다수의 URL 및 파라미터에서 SQL Injection 발생. 예시: `http://testasp.vulnweb.com/Login.asp?RetURL=%2FDefault%2Easp%3F`, 파라미터 `tfUName`, 공격 페이로드: `ZAP AND 1=1 --`, `ZAP' AND '1'='1' --`, `ZAP' WAITFOR DELAY '0:0:15' --` 등 <br><br> **[방어 코드 예시](Java)** <br>```java  String userName = request.getParameter("tfUName");  // ...  PreparedStatement stmt = connection.prepareStatement("SELECT * FROM users WHERE userName = ?");  stmt.setString(1, userName);  ResultSet rs = stmt.executeQuery();  // ... ``` |
+| 3 | Source Code Disclosure - File Inclusion (CWE-22) | High | **[상세 설명]**  `item` 파라미터를 통해 파일 포함 취약점이 존재합니다. 공격자는 `item` 파라미터를 조작하여 웹 서버의 임의 파일(소스 코드 포함)에 접근할 수 있습니다. 이는 기밀 정보 유출로 이어질 수 있습니다. <br><br>**[조치 방안]** 1.  사용자 입력으로 지정된 파일 경로를 직접 사용하지 않습니다.  2.  허용된 파일 경로 목록을 미리 정의하고, 사용자 입력이 목록 내에 있는지 확인합니다.  3.  파일 경로를 검증하는 데 사용되는 함수를 사용하고,  `../` 와 같은 경로 탈출 시퀀스를 처리합니다. <br><br> | **[공격 벡터]** `http://testasp.vulnweb.com/Templatize.asp?item=html/about.html` , 공격 페이로드: `Templatize.asp` (예시, 실제 공격 페이로드는 더욱 정교할 수 있음) <br><br> **[방어 코드 예시](PHP)** <br>```php  $item = $_GET['item'];  $allowed_paths = array('html/about.html');  if (!in_array($item, $allowed_paths)) {    die("Invalid file path");  }  include($item);  ``` |
+| 4 | Server Side Request Forgery (CWE-918) | High | **[상세 설명]**  `RetURL` 파라미터를 통해 SSRF(Server-Side Request Forgery) 취약점이 존재합니다. 공격자는 `RetURL` 파라미터에 임의의 URL을 삽입하여 서버가 해당 URL에 요청을 보내도록 유도할 수 있습니다. 이를 통해 내부 시스템에 대한 정보를 획득하거나, 다른 서비스를 공격할 수 있습니다. <br><br>**[조치 방안]** 1.  `RetURL` 파라미터를 통해 외부 URL로의 요청을 허용하지 않습니다.  2.  허용된 내부 URL 목록을 정의하고, 입력값이 목록 내에 있는지 확인합니다.  3.  입력값에 대한 철저한 검증 및 필터링을 적용합니다. <br><br> | **[공격 벡터]** `http://testasp.vulnweb.com/Login.asp?RetURL=%2FDefault%2Easp%3F`, `http://testasp.vulnweb.com/Logout.asp?RetURL=%2Fshowforum%2Easp%3Fid%3D2` <br> 공격 페이로드: (자세한 공격 페이로드는 시스템 구조에 따라 다름) <br><br> **[방어 코드 예시](Pseudo-code)** <br>```  function validate_url(url) {    if (url starts with "internal_domain") {      return true;    } else {      return false;    }  }  if (validate_url(ret_url)) {    // 리다이렉트 수행  } else {    // 에러 처리  } ``` |
+| 5 | Advanced SQL Injection (CWE-89) | High | **[상세 설명]**  `id` 파라미터에서 다양한 유형의 고급 SQL Injection 공격이 가능합니다.  공격자는 boolean-based blind injection, stacked queries, time-based blind injection 등을 사용하여 데이터베이스 정보를 획득하거나 데이터베이스 서버를 공격할 수 있습니다. <br><br>**[조치 방안]**  2번 항목의 조치 방안과 동일하게, 매개변수화된 쿼리와 철저한 입력 검증을 통해 해결해야 합니다. <br><br> | **[공격 벡터]**  다수의 URL과 `id` 파라미터에서 고급 SQL Injection 공격이 가능. 예시: `http://testasp.vulnweb.com/showthread.asp?id=56+AND+9625%3D5045`, 공격 페이로드: `56 AND 8650=8650`, `0;(SELECT * FROM (SELECT(SLEEP(5)))xYMG)#`, `71) AND (SELECT * FROM (SELECT(SLEEP(5)))zqWe) AND (5263=5263` 등 <br><br> **[방어 코드 예시]** 2번 항목의 Java 코드 예시와 동일합니다. |
+| 6 | Content Security Policy (CSP) Header Not Set (CWE-613) | Medium | **[상세 설명]**  CSP 헤더가 설정되어 있지 않아 XSS(Cross-Site Scripting) 공격에 취약합니다. 공격자는 악성 스크립트를 삽입하여 사용자의 세션을 탈취하거나, 악성 코드를 실행시킬 수 있습니다. <br><br>**[조치 방안]**  모든 응답에 적절한 Content Security Policy (CSP) 헤더를 추가합니다.  CSP 헤더는 허용된 리소스의 출처를 지정하여 브라우저가 신뢰할 수 없는 리소스를 차단하도록 합니다.  <br><br> | **[공격 벡터]**  `http://testasp.vulnweb.com/sitemap.xml`, `http://testasp.vulnweb.com/` 등 다수의 URL에서 CSP 헤더가 설정되어 있지 않음 <br><br> **[방어 코드 예시](HTTP Header)** <br>```  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; ``` |
+
+
+---
+</textarea>
+    <textarea id="recommendation-markdown-source" style="display:none;">## 총평 및 추가 권고
+
+**주요 취약점 패턴:**  SQL Injection과 External Redirect, 그리고 CSP 헤더 미설정이 가장 심각한 취약점으로 나타났습니다.  특히 SQL Injection은 데이터베이스 및 시스템 전체에 심각한 피해를 줄 수 있는 고위험 취약점입니다.
+
+**추가 분석 제안:**  현재 분석된 100개의 경고 외에 3352개의 경고가 남아 있습니다. 이는 인증 및 권한 관리, 세션 관리, 입력 검증, 파일 처리,  비즈니스 로직 등 애플리케이션의 광범위한 영역에 취약점이 존재할 가능성을 시사합니다. 따라서,  **인증 및 권한 관리, 세션 관리,  그리고 모든 사용자 입력 처리 부분에 대한 심층적인 수동 점검**이 필요합니다. 특히, 비즈니스 로직에 SQL 쿼리가 직접적으로 사용되는 부분이 있다면 더욱 주의 깊게 검토해야 합니다.
+
+**종합 보안 강화 방안:**
+
+1. **(최우선순위) 매개변수화된 쿼리 및 입력 검증 강화:** 모든 데이터베이스 쿼리에 매개변수화된 쿼리를 사용하고, 모든 사용자 입력에 대한 철저한 검증 및 에스케이프 처리를 구현합니다.  이것은 SQL Injection 및 기타 데이터베이스 관련 취약점을 근본적으로 해결하는 가장 중요한 조치입니다.
+
+2. **(중요) Content Security Policy (CSP) 헤더 설정:** 모든 HTTP 응답에 적절한 CSP 헤더를 추가하여 XSS 공격을 방지합니다.  허용된 리소스의 출처를 명시적으로 정의해야 합니다.
+
+3. **(중요) 시큐어 코딩 가이드라인 준수:**  OWASP 시큐어 코딩 가이드라인을 준수하여 안전한 코딩 관행을 적용합니다.  정적 및 동적 애플리케이션 보안 테스트 (SAST/DAST) 도구를 활용하여 개발 초기 단계에서 취약점을 발견하고 제거합니다.
+
+4. **(권장) Web Application Firewall (WAF) 도입:**  WAF를 통해 알려진 공격 패턴을 차단하고,  애플리케이션을 보호합니다.  WAF 규칙을 정기적으로 업데이트하고,  정확하게 튜닝해야 합니다.
+
+
+본 보고서는 ZAP 스캔 결과를 바탕으로 작성되었으며,  수동 점검을 통해 더욱 상세한 분석 및 추가적인 취약점 발견이 가능합니다.  위에서 제시된 조치 방안들을 적용하고,  정기적인 보안 점검을 수행하여 애플리케이션의 보안 수준을 지속적으로 향상시켜야 합니다.
+</textarea>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tableSource = document.getElementById('table-markdown-source').value;
+            const recommendationSource = document.getElementById('recommendation-markdown-source').value;
+            
+            let tableHtml = marked.parse(tableSource);
+            tableHtml = tableHtml.replace(/<td>High<\/td>/g, '<td class="risk-high">High</td>');
+            tableHtml = tableHtml.replace(/<td>Medium<\/td>/g, '<td class="risk-medium">Medium</td>');
+            tableHtml = tableHtml.replace(/<td>Low<\/td>/g, '<td class="risk-low">Low</td>');
+
+            document.getElementById('report-table-content').innerHTML = tableHtml;
+            document.getElementById('report-recommendation-content').innerHTML = marked.parse(recommendationSource);
+        });
+    </script>
+</body>
+</html>
+        

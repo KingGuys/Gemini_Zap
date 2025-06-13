@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ZAP + Gemini API Integration (v5.0 - Advanced Reporting)
+ZAP + Gemini API Integration (v9.0 - Final Prompt Engineering)
 OWASP ZAP과 Google Gemini API를 사용한 자동화된 보안 분석 도구
-- 보고서 가독성 및 전문성 고도화를 위한 프롬프트 재설계
-- 방어 코드 예시 및 논리 취약점 분석 강화
+- AI의 '환각' 현상 방지 및 방어 코드 예시 보장을 위한 최종 프롬프트 튜닝
 """
 
 import time
@@ -143,8 +142,9 @@ class ZapGeminiAutomation:
 
     def _summarize_alerts(self, alerts, limit=30):
         if not alerts:
-            return "발견된 보안 경고가 없습니다."
+            return "발견된 보안 경고가 없습니다.", 0
         
+        total_alerts = len(alerts)
         risk_map = {"High": 3, "Medium": 2, "Low": 1, "Informational": 0}
         confidence_map = {"High": 3, "Medium": 2, "Low": 1, "Confirmed": 4, "False Positive": 0}
 
@@ -153,7 +153,7 @@ class ZapGeminiAutomation:
                                reverse=True)
         
         summary_lines = []
-        summary_lines.append(f"총 {len(sorted_alerts)}개의 보안 경고가 발견되었습니다. 위험도가 높은 상위 {min(len(sorted_alerts), limit)}개를 분석 대상으로 선정했습니다.\n")
+        summary_lines.append(f"총 {total_alerts}개의 보안 경고가 발견되었습니다. 위험도가 높은 상위 {min(total_alerts, limit)}개를 분석 대상으로 선정했습니다.\n")
         
         for i, alert in enumerate(sorted_alerts[:limit]):
             summary_lines.append(f"--- 경고 {i+1} ---")
@@ -162,10 +162,10 @@ class ZapGeminiAutomation:
             summary_lines.append(f"  - URL: {alert.get('url')}")
             summary_lines.append(f"  - 파라미터 (Param): {alert.get('param')}")
             summary_lines.append(f"  - 공격 (Attack): {alert.get('attack')}")
-            summary_lines.append(f"  - 설명 (Description): {alert.get('description', '').strip().replace('*', '')}") # 마크다운 문법 충돌 방지
+            summary_lines.append(f"  - 설명 (Description): {alert.get('description', '').strip().replace('*', '')}")
             summary_lines.append("")
         
-        return "\n".join(summary_lines)
+        return "\n".join(summary_lines), total_alerts
 
     def analyze_with_gemini(self, prompt, is_test=False):
         if not is_test:
@@ -191,34 +191,40 @@ class ZapGeminiAutomation:
             print(f"전체 응답: {result}", file=sys.stderr)
             return "Gemini API 응답을 처리하는 데 실패했습니다."
 
-    def create_prompt(self, data, analysis_type):
-        """[개선됨] 분석 유형에 따라 표 형식 및 방어 코드 예시를 포함하도록 프롬프트를 생성합니다."""
+    def create_prompt(self, data, analysis_type, total_alerts_count=0, limit=30):
+        """[개선됨 v9.0] '환각' 현상 방지 및 방어 코드 예시를 보장하도록 프롬프트 수정"""
         data_str = json.dumps(data, indent=2, ensure_ascii=False) if isinstance(data, dict) else data
 
-        prompt_base = f"""당신은 최고의 보안 컨설턴트입니다. 제공된 데이터를 분석하여, 반드시 아래의 마크다운 테이블 형식으로 결과를 작성해주세요.
-각 컬럼에 맞춰 핵심 내용을 요약하고, 특히 '불충분한 인증 및 인가'와 같은 논리적 취약점도 추론하여 분석해야 합니다.
-모든 내용은 한국어로 작성해주세요.
+        # [개선됨] 프롬프트에 더 강력한 제약 조건 추가
+        prompt_base = f"""당신은 세계 최고 수준의 보안 컨설턴트입니다. 제공된 ZAP 스캔 데이터를 분석하여, 반드시 아래의 마크다운 테이블 형식으로 상세한 보안 분석 보고서를 작성해주세요.
+제공된 '분석 대상 데이터'에만 근거하여 분석해야 하며, 목록에 없는 경고 번호(예: '경고 16-20 참고')를 임의로 언급해서는 안 됩니다.
+모든 내용은 한국어로 작성해야 합니다.
 
-## 취약점 분석 결과
-
-| No. | 취약점명 (CWE) | 위험도 | 상세 설명 및 조치 방안 | 공격/재현 정보 및 방어 코드 예시 |
+| No. | 취약점 분류 (CWE) | 위험도 | 상세 분석 및 조치 방안 | 공격 벡터 및 방어 코드 |
 |---|---|---|---|---|
-| 1 | 여기에 첫 번째 취약점 이름과 관련 CWE 번호를 기입 | High/Medium/Low | **[상세 설명]** 여기에 취약점에 대한 상세 설명을 작성합니다. **[조치 방안]** 여기에 구체적인 해결 방안을 단계별로 작성합니다. | **[공격/재현 정보]** 취약점이 발견된 URL, 파라미터, 간단한 공격 페이로드 등을 명시합니다. **[방어 코드 예시]** 여기에 해당 취약점을 방어할 수 있는 시큐어 코딩 예시(예: Java, Python, PHP 등)를 제공합니다. |
+| 1 | 여기에 첫 번째 취약점의 정확한 이름과 관련 CWE 번호를 기입합니다. (예: SQL Injection (CWE-89)) | `High`, `Medium`, `Low` 중 하나 | **[상세 설명]** 이 취약점이 무엇이며, 비즈니스에 어떤 영향을 미칠 수 있는지 구체적으로 설명합니다.<br><br>**[조치 방안]** 개발자가 명확히 이해하고 따를 수 있도록, 단계별로 구체적인 해결 방안을 제시합니다. | **[공격 벡터]** 취약점이 발견된 URL, 파라미터, 공격 페이로드 예시를 명확하게 보여줍니다.<br><br>**[방어 코드 예시]** 반드시 이 취약점을 방어할 수 있는 안전한 코드 예시(Java, Python, PHP 등)를 제공해야 합니다. 만약 특정 언어로 제공하기 어렵다면, 의사 코드(Pseudo-code)라도 제시해야 합니다. |
 | 2 | ... | ... | ... | ... |
-
----
 """
         
+        recommendation_prompt = f"""
+---
+## 총평 및 추가 권고
+
+위 표의 분석 결과를 바탕으로 애플리케이션의 전반적인 보안 상태를 종합적으로 평가해주세요.
+- **주요 취약점 패턴:** 어떤 종류의 취약점이 집중적으로 발견되었는지 요약합니다.
+- **추가 분석 제안:** 현재 분석된 {limit}개 외에, 총 {total_alerts_count}개의 경고가 있습니다. 이를 바탕으로 어떤 부분(예: 인증 및 권한 관리, 비즈니스 로직 등)에 대한 심층적인 수동 점검이 필요한지 제안해주세요.
+- **종합 보안 강화 방안:** 개발팀이 즉시 적용할 수 있는 3가지 이상의 실질적인 보안 강화 방안(예: 시큐어 코딩 프레임워크 도입, 보안 헤더 일괄 적용, WAF 정책 튜닝 등)을 우선순위와 함께 제시해주세요.
+"""
+
         if analysis_type == "alerts_summary":
-            return prompt_base + f"### 분석 대상 데이터 (ZAP 경고 요약)\n{data_str}"
+            return prompt_base + recommendation_prompt + f"\n### 분석 대상 데이터 (ZAP 경고 요약)\n{data_str}"
         elif analysis_type == "single_packet":
-            return prompt_base + f"### 분석 대상 데이터 (단일 HTTP 패킷)\n{data_str}"
+            return prompt_base + "\n---" + f"\n### 분석 대상 데이터 (단일 HTTP 패킷)\n{data_str}"
         else:
             return f"다음 데이터를 보안 관점에서 심층 분석하고, 발견된 모든 잠재적 이슈와 개선 권장 사항을 한국어로 상세히 설명해주세요.\n\n{data_str}"
 
 
     def save_html_report(self, markdown_content, output_file, target_url="N/A", alerts=None):
-        """[개선됨] 표 형식에 최적화된 HTML 보고서를 저장합니다."""
         print(f"HTML 보고서를 생성하는 중... ({output_file})")
         
         risk_counts = {"High": 0, "Medium": 0, "Low": 0, "Informational": 0}
@@ -228,6 +234,10 @@ class ZapGeminiAutomation:
                 if risk in risk_counts:
                     risk_counts[risk] += 1
         
+        report_parts = re.split(r'## 총평 및 추가 권고', markdown_content)
+        table_markdown = report_parts[0]
+        recommendation_markdown = "## 총평 및 추가 권고" + report_parts[1] if len(report_parts) > 1 else ""
+
         html_template = f"""
 <!DOCTYPE html>
 <html lang="ko">
@@ -239,51 +249,81 @@ class ZapGeminiAutomation:
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
-        body {{ font-family: 'Noto Sans KR', sans-serif; background-color: #f9fafb; }}
-        .markdown-body table {{ width: 100%; border-collapse: collapse; margin-top: 1.5rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); }}
-        .markdown-body th, .markdown-body td {{ border: 1px solid #e5e7eb; padding: 0.75rem 1rem; text-align: left; vertical-align: top; }}
-        .markdown-body th {{ background-color: #f3f4f6; font-weight: 600; font-size: 0.9rem; }}
+        body {{ font-family: 'Noto Sans KR', sans-serif; background-color: #f8f9fa; }}
+        .markdown-body table {{ 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 1.5rem; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #adb5bd;
+        }}
+        .markdown-body th, .markdown-body td {{ 
+            border: 1px solid #ced4da;
+            padding: 1rem 1.25rem; 
+            text-align: left; 
+            vertical-align: top; 
+            line-height: 1.7;
+        }}
+        .markdown-body th {{ 
+            background-color: #f1f3f5; 
+            font-weight: 600; 
+            font-size: 0.95rem; 
+            color: #212529;
+            border-color: #adb5bd;
+        }}
         .markdown-body td {{ background-color: #ffffff; }}
-        .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {{ margin-top: 1.5rem; margin-bottom: 1rem; padding-bottom: 0.3rem; border-bottom: 1px solid #e5e7eb; }}
-        .markdown-body code {{ background-color: #e5e7eb; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.85em; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;}}
-        .markdown-body pre {{ background-color: #1f2937; color: #d1d5db; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }}
+        .markdown-body tr:nth-child(even) td {{ background-color: #f8f9fa; }}
+        .markdown-body code {{ background-color: #e9ecef; color: #c92a2a; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875em; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;}}
+        .markdown-body pre {{ background-color: #212529; color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }}
         .markdown-body ul {{ list-style-position: inside; padding-left: 1rem; }}
-        .markdown-body strong {{ color: #1f2937; }}
+        .markdown-body strong {{ color: #212529; font-weight: 600; }}
+        .risk-high {{ color: #d9480f; font-weight: 700; }}
+        .risk-medium {{ color: #f08c00; font-weight: 700; }}
+        .risk-low {{ color: #1971c2; font-weight: 700; }}
     </style>
 </head>
 <body class="text-gray-800">
-    <div class="container mx-auto p-4 md:p-6 lg:p-8 max-w-7xl">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800">보안 취약점 분석 보고서</h1>
-            <p class="text-gray-500 mt-2">Powered by OWASP ZAP & Google Gemini</p>
+    <div class="container mx-auto p-4 md:p-6 lg:p-8 max-w-screen-xl">
+        <header class="text-center mb-10">
+            <h1 class="text-5xl font-bold text-gray-800">보안 취약점 분석 보고서</h1>
+            <p class="text-gray-600 mt-3">Powered by OWASP ZAP & Google Gemini</p>
         </header>
         
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-center">
-            <div class="bg-red-100 text-red-800 p-4 rounded-lg shadow"><p class="text-3xl font-bold">{risk_counts['High']}</p><p>High Risk</p></div>
-            <div class="bg-yellow-100 text-yellow-800 p-4 rounded-lg shadow"><p class="text-3xl font-bold">{risk_counts['Medium']}</p><p>Medium Risk</p></div>
-            <div class="bg-blue-100 text-blue-800 p-4 rounded-lg shadow"><p class="text-3xl font-bold">{risk_counts['Low']}</p><p>Low Risk</p></div>
-            <div class="bg-gray-200 text-gray-800 p-4 rounded-lg shadow"><p class="text-3xl font-bold">{risk_counts['Informational']}</p><p>Informational</p></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10 text-center">
+            <div class="bg-white border-t-4 border-red-500 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">{risk_counts['High']}</p><p class="text-gray-500">High Risk</p></div>
+            <div class="bg-white border-t-4 border-yellow-500 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">{risk_counts['Medium']}</p><p class="text-gray-500">Medium Risk</p></div>
+            <div class="bg-white border-t-4 border-blue-500 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">{risk_counts['Low']}</p><p class="text-gray-500">Low Risk</p></div>
+            <div class="bg-white border-t-4 border-gray-400 p-4 rounded-lg shadow-md"><p class="text-3xl font-bold">{risk_counts['Informational']}</p><p class="text-gray-500">Informational</p></div>
         </div>
 
-        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-            <h2 class="text-xl font-semibold mb-2">분석 개요</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                <p><strong>분석 대상:</strong> <span class="font-mono text-blue-600">{target_url}</span></p>
+        <div class="bg-white p-6 rounded-lg shadow-md mb-10">
+            <h2 class="text-2xl font-semibold mb-3 border-b pb-2">분석 개요</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-base">
+                <p><strong>분석 대상:</strong> <span class="font-mono text-blue-700">{target_url}</span></p>
                 <p><strong>분석 일시:</strong> <span class="font-mono">{time.strftime('%Y-%m-%d %H:%M:%S')}</span></p>
             </div>
         </div>
 
-        <main class="bg-white p-6 rounded-lg shadow-md">
-            <div id="report-content" class="markdown-body"></div>
-        </main>
+        <main id="report-table-content" class="markdown-body"></main>
+        
+        <div id="report-recommendation-content" class="markdown-body mt-10 bg-white p-8 rounded-lg shadow-md"></div>
     </div>
 
-    <textarea id="markdown-source" style="display:none;">{markdown_content}</textarea>
+    <textarea id="table-markdown-source" style="display:none;">{table_markdown}</textarea>
+    <textarea id="recommendation-markdown-source" style="display:none;">{recommendation_markdown}</textarea>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {{
-            const markdownSource = document.getElementById('markdown-source').value;
-            document.getElementById('report-content').innerHTML = marked.parse(markdownSource);
+            const tableSource = document.getElementById('table-markdown-source').value;
+            const recommendationSource = document.getElementById('recommendation-markdown-source').value;
+            
+            let tableHtml = marked.parse(tableSource);
+            tableHtml = tableHtml.replace(/<td>High<\/td>/g, '<td class="risk-high">High</td>');
+            tableHtml = tableHtml.replace(/<td>Medium<\/td>/g, '<td class="risk-medium">Medium</td>');
+            tableHtml = tableHtml.replace(/<td>Low<\/td>/g, '<td class="risk-low">Low</td>');
+
+            document.getElementById('report-table-content').innerHTML = tableHtml;
+            document.getElementById('report-recommendation-content').innerHTML = marked.parse(recommendationSource);
         }});
     </script>
 </body>
@@ -298,7 +338,7 @@ class ZapGeminiAutomation:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="OWASP ZAP + Gemini API 자동화된 보안 분석 도구 (v5.0)",
+        description="OWASP ZAP + Gemini API 자동화된 보안 분석 도구 (v9.0)",
         formatter_class=argparse.RawTextHelpFormatter
     )
     mode_group = parser.add_mutually_exclusive_group(required=True)
@@ -307,7 +347,7 @@ def main():
     mode_group.add_argument("--analyze-packet", type=int, metavar="ID", help="ZAP History의 특정 ID를 가진 패킷 하나를 정밀 분석합니다.")
     mode_group.add_argument("--test-gemini", action="store_true", help="Gemini API 연결 및 인증을 테스트합니다.")
 
-    parser.add_argument("--limit", type=int, default=30, help="[개선됨] 분석할 보안 경고의 최대 개수 (위험도 높은 순, 기본값: 30)")
+    parser.add_argument("--limit", type=int, default=30, help="분석할 보안 경고의 최대 개수 (위험도 높은 순, 기본값: 30)")
     parser.add_argument("--html-report", default="report.html", help="분석 결과를 저장할 HTML 보고서 파일 이름 (기본값: report.html)")
     parser.add_argument("--config", default="config.ini", help="설정 파일 경로 (기본값: config.ini)")
     parser.add_argument("--target-override", help="보고서에 표시될 분석 대상 URL을 수동으로 지정합니다.")
@@ -316,6 +356,7 @@ def main():
     
     automation = ZapGeminiAutomation(config_file=args.config)
     analysis_result, alerts_data = None, None
+    total_alerts_count = 0
     
     target_for_report = args.target_override if args.target_override else args.scan_url
 
@@ -339,8 +380,8 @@ def main():
                 except:
                     target_for_report = "Multiple Targets"
 
-            alerts_summary = automation._summarize_alerts(alerts_data, limit=args.limit)
-            prompt = automation.create_prompt(alerts_summary, "alerts_summary")
+            alerts_summary, total_alerts_count = automation._summarize_alerts(alerts_data, limit=args.limit)
+            prompt = automation.create_prompt(alerts_summary, "alerts_summary", total_alerts_count=total_alerts_count, limit=args.limit)
             analysis_result = automation.analyze_with_gemini(prompt)
         else:
             print("분석할 보안 경고가 없습니다.")
